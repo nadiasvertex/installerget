@@ -47,6 +47,20 @@ int					cget_curl_progress_callback(void *client_data,
 
 bool				cget_process_options(CURL *co);
 
+// The list of URLs to download
+std::vector<std::string> urls;
+
+// The list of file outputs to write.
+std::vector<std::string> outputs;
+
+// The list of authorization information.
+std::vector<std::string> auths;
+
+// Global flag set when we are supposed to quit.
+bool global_please_quit=false;
+
+// The global stderr
+FILE *cget_stderr = stderr;
 
 class Progress
 {
@@ -190,6 +204,42 @@ public:
 		UpdateWindow(hParent);
 	}
 
+	// When we are given the HWND to another window,
+	// we make sure that we are over the center of the
+	// window.  We also arrange our size so that we fit
+	// horizontally just so.
+	void put_over(HWND hInstaller)
+	{
+		RECT wr, mr;
+
+		GetWindowRect(hInstaller, &wr);
+		GetWindowRect(hParent, &mr);
+
+		int my_height = mr.bottom - mr.top;
+		int other_height = wr.bottom - wr.top;
+
+		int x = wr.left+5;
+		int y = wr.top + (other_height>>1) - (my_height>>1);
+		int w = wr.right-wr.left-10;
+		
+		SetWindowPos(hParent, 
+					 hInstaller, 
+					 x, 
+				     y, 
+					 w, 
+					 my_height, 
+					 NULL);
+
+		fprintf(cget_stderr,
+			"info: putting window over HWND: %x\n"
+			"\t  over rect: %d,%d,%d,%d\n"
+			"\tresult rect: %d,%d,%d,%d\n",
+			hInstaller, 
+			wr.left, wr.right, wr.top, wr.bottom,
+			x,y,w,my_height);
+
+	}
+
 	// Set any piece of the window.  Negative numbers are filled in
 	// using the current value of the window rect.
 	void set_window_pos(int x, int y, int w, int h)
@@ -304,21 +354,6 @@ public:
 
 // Handles managing the progress bar
 Progress *global_progress;
-
-// The list of URLs to download
-std::vector<std::string> urls;
-
-// The list of file outputs to write.
-std::vector<std::string> outputs;
-
-// The list of authorization information.
-std::vector<std::string> auths;
-
-// Global flag set when we are supposed to quit.
-bool global_please_quit=false;
-
-// The global stderr
-FILE *cget_stderr = stderr;
 
 int APIENTRY _tWinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
@@ -452,6 +487,7 @@ cget_process_options(CURL *co)
 		{ "width",		required_argument, 0,     0  }, /*       11 */
 		{ "height",		required_argument, 0,     0  }, /*       12 */
 		{ "auth",		required_argument, 0,    'a' }, /*       13 */
+		{ "over",		required_argument, 0,     0  }, /*       14 */
 		/* end-of-list marker */
 		{ 0, 0, 0, 0 }
 	};
@@ -513,6 +549,10 @@ cget_process_options(CURL *co)
 				  break;
 			  case 12:
 				  global_progress->set_window_pos(-1, -1, -1, strtol(optarg, NULL, 10));				  
+				  break;
+
+			  case 14:
+				  global_progress->put_over((HWND)strtoul(optarg, NULL, 0));
 				  break;
 
 			  default: /* something unexpected has happened */
