@@ -28,7 +28,7 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="copy /y $(InputDir)..\*.dll $(OutDir)"
+				CommandLine="copy /y $(InputDir)..\*.dll $(OutDir)&#x0D;&#x0A;"
 				Outputs="$(OutDir)\openldap.dll"
 			/>
 			<Tool
@@ -104,6 +104,8 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
+				CommandLine="copy /y $(InputDir)..\*.dll $(OutDir)"
+				Outputs="$(OutDir)\openldap.dll"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -118,6 +120,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="..\libcurl\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -136,6 +139,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="..\libcurl\lib\Release\curllib_static.lib ..\libcurl\lib\libeay32.lib ..\libcurl\lib\ssleay32.lib ..\libcurl\lib\openldap.lib Ws2_32.lib Winmm.lib comctl32.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
