@@ -305,6 +305,9 @@ std::vector<std::string> urls;
 // The list of file outputs to write.
 std::vector<std::string> outputs;
 
+// The list of authorization information.
+std::vector<std::string> auths;
+
 // Global flag set when we are supposed to quit.
 bool global_please_quit=false;
 
@@ -356,8 +359,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	// Walk through all urls.
 	std::vector<std::string>::iterator url_it = urls.begin();
 	std::vector<std::string>::iterator out_it = outputs.begin();
+	std::vector<std::string>::iterator auth_it = auths.begin();
 
-	for(; url_it!=urls.end() && out_it!=outputs.end(); ++url_it, ++out_it)
+	for(; url_it!=urls.end() && out_it!=outputs.end(); ++url_it, ++out_it, ++auth_it)
 	{
 	    // Open the file		
 		FILE *stream = fopen(out_it->c_str(), "wb");
@@ -367,6 +371,16 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
 		// Tell curl where to read from.
 		curl_easy_setopt(co, CURLOPT_URL, url_it->c_str());
+
+		// Tell curl what authorization to use, if any
+		if (auth_it->length()>0)
+			curl_easy_setopt(co, CURLOPT_USERPWD, auth_it->c_str());
+		else
+			curl_easy_setopt(co, CURLOPT_USERPWD, NULL);
+
+		// Log the filenames
+		fprintf(cget_stderr, "from: %s\nto: %s\n", url_it->c_str(), out_it->c_str());
+		fflush(cget_stderr);
 
 		// Fill in labels on window
 		global_progress->set_url(url_it->c_str());
@@ -379,7 +393,8 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		CURLcode res = curl_easy_perform(co);
 
 		// Log the result.
-		fprintf(cget_stderr, "%s\n", curl_easy_strerror(res));
+		fprintf(cget_stderr, "result: %s\n", curl_easy_strerror(res));
+		fflush(cget_stderr);
 
 		// Close the file.
 		if(NULL!=stream)
@@ -427,6 +442,7 @@ cget_process_options(CURL *co)
 		{ "top",		required_argument, 0,     0  }, /*       10 */
 		{ "width",		required_argument, 0,     0  }, /*       11 */
 		{ "height",		required_argument, 0,     0  }, /*       12 */
+		{ "auth",		required_argument, 0,    'a' }, /*       13 */
 		/* end-of-list marker */
 		{ 0, 0, 0, 0 }
 	};
@@ -469,7 +485,7 @@ cget_process_options(CURL *co)
 				//append = 1;
 				break;
 			  case 5: /* -stderr */
-				cget_stderr = fopen(optarg, "t");
+				cget_stderr = fopen(optarg, "at");
 
 				// Make sure that the output file opened correctly.
 				if (NULL==cget_stderr)
@@ -510,10 +526,18 @@ cget_process_options(CURL *co)
 			outputs.push_back(optarg);
 			break;
 		  case 'u': /* -url=URL */	
+		    // Push an empty authorization onto the stack
+			// if none was specified.
+			if (urls.size() > auths.size())
+				auths.push_back("");
+
 			urls.push_back(optarg);			
 			break;
+		  case 'a': /* -url=URL */	
+			auths.push_back(optarg);			
+			break;
 		  case 't': /* -title="window title" */	
-			  global_progress->set_title(std::string(optarg));			
+			global_progress->set_title(std::string(optarg));			
 			break;
 		  case 'v': /* -verbose[=NUM] */
 			if (optarg)
@@ -529,8 +553,7 @@ cget_process_options(CURL *co)
 							"%s: "
 							"verbosity level `%s' is not a number\n",
 							progname,
-							optarg);
-					//usage(progname);
+							optarg);					
 					return false;
 				}
 				else
@@ -545,7 +568,10 @@ cget_process_options(CURL *co)
 			}
 			break;
 		  case '?': /* getopt_long_only noticed an error */
-			//usage(progname);
+			fprintf(cget_stderr,
+					"%s: "
+					"an error was noticed in one of the command-line arguments.\n",
+					progname);
 			return 2;
 		  default: /* something unexpected has happened */
 			fprintf(cget_stderr,
@@ -556,6 +582,11 @@ cget_process_options(CURL *co)
 			return false;
 		  }
 	}
+
+	// If there is only one URL, and no auth is specified
+	// we push an empty one onto the stack.
+	if (urls.size() > auths.size())
+		auths.push_back("");
 
 	return true;
 }
