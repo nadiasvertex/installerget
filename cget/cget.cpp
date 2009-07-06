@@ -26,6 +26,7 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISE
 #include "stdafx.h"
 #include "cget.h"
 
+#define VERSION "0.6"
 #define MAX_LOADSTRING 100
 
 // Global Variables:
@@ -182,6 +183,22 @@ public:
 		set_label_text(hUrlText, _url_text, true);
 		set_label_text(hTargetText, _target_text, true);
 	}
+
+	// Set any piece of the window.  Negative numbers are filled in
+	// using the current value of the window rect.
+	void set_window_pos(int x, int y, int w, int h)
+	{
+		RECT wr;
+
+		GetWindowRect(hParent, &wr);
+
+		if (x<0) x=wr.left;
+		if (y<0) y=wr.top;
+		if (w<0) w=wr.right - wr.left;
+		if (h<0) h=wr.bottom - wr.top;
+
+		MoveWindow(hParent, x, y, w, h, TRUE);
+	}
 	
 	void set_url(std::string url_text)
 	{
@@ -291,6 +308,9 @@ std::vector<std::string> outputs;
 // Global flag set when we are supposed to quit.
 bool global_please_quit=false;
 
+// The global stderr
+FILE *cget_stderr = stderr;
+
 int APIENTRY _tWinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
                      LPTSTR    lpCmdLine,
@@ -359,7 +379,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		CURLcode res = curl_easy_perform(co);
 
 		// Log the result.
-		fprintf(stderr, "%s\n", curl_easy_strerror(res));
+		fprintf(cget_stderr, "%s\n", curl_easy_strerror(res));
 
 		// Close the file.
 		if(NULL!=stream)
@@ -371,6 +391,12 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	}
 
 	curl_easy_cleanup(co);
+
+	// Clean up the standard error stream.
+	if (NULL!=cget_stderr && cget_stderr != stderr)
+	{
+		fclose(cget_stderr);
+	}
 
 	//return (int) msg.wParam;
 	return 0;
@@ -397,6 +423,10 @@ cget_process_options(CURL *co)
 		{ "verbose",    optional_argument, 0,    'v' }, /*       6 */
 		{ "url",		required_argument, 0,    'u' }, /*       7 */
 		{ "title",		required_argument, 0,    't' }, /*       8 */
+		{ "left",		required_argument, 0,     0  }, /*       9 */
+		{ "top",		required_argument, 0,     0  }, /*       10 */
+		{ "width",		required_argument, 0,     0  }, /*       11 */
+		{ "height",		required_argument, 0,     0  }, /*       12 */
 		/* end-of-list marker */
 		{ 0, 0, 0, 0 }
 	};
@@ -439,10 +469,29 @@ cget_process_options(CURL *co)
 				//append = 1;
 				break;
 			  case 5: /* -stderr */
-				//append = 0;
-				break;		
+				cget_stderr = fopen(optarg, "t");
+
+				// Make sure that the output file opened correctly.
+				if (NULL==cget_stderr)
+					cget_stderr = stderr;
+
+				break;
+
+			  case 9:
+				  global_progress->set_window_pos(strtol(optarg, NULL, 10), -1, -1, -1);
+				  break;
+			  case 10:
+				  global_progress->set_window_pos(-1, strtol(optarg, NULL, 10), -1, -1);
+				  break;
+			  case 11:
+				  global_progress->set_window_pos(-1, -1, strtol(optarg, NULL, 10), -1);
+				  break;
+			  case 12:
+				  global_progress->set_window_pos(-1, -1, -1, strtol(optarg, NULL, 10));				  
+				  break;
+
 			  default: /* something unexpected has happened */
-				fprintf(stderr,
+				fprintf(cget_stderr,
 						"%s: "
 						"getopt_long_only unexpectedly returned %d for `--%s'\n",
 						progname,
@@ -476,7 +525,7 @@ cget_process_options(CURL *co)
 						   &verbose,
 						   &ignored) != 1)
 				{
-					fprintf(stderr,
+					fprintf(cget_stderr,
 							"%s: "
 							"verbosity level `%s' is not a number\n",
 							progname,
@@ -499,7 +548,7 @@ cget_process_options(CURL *co)
 			//usage(progname);
 			return 2;
 		  default: /* something unexpected has happened */
-			fprintf(stderr,
+			fprintf(cget_stderr,
 					"%s: "
 					"getopt_long_only returned an unexpected value (%d)\n",
 					progname,
