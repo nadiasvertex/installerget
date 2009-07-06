@@ -184,6 +184,12 @@ public:
 		set_label_text(hTargetText, _target_text, true);
 	}
 
+	void show(int nCmdShow)
+	{
+		ShowWindow(hParent, nCmdShow);
+		UpdateWindow(hParent);
+	}
+
 	// Set any piece of the window.  Negative numbers are filled in
 	// using the current value of the window rect.
 	void set_window_pos(int x, int y, int w, int h)
@@ -352,6 +358,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	// Process the command-line options.
 	if (!cget_process_options(co))
 		return -1;
+
+	// Show the window
+	global_progress->show(nCmdShow);
 	
 	// Initialize the range of the progress bar.
 	global_progress->set_range(1000);
@@ -517,8 +526,44 @@ cget_process_options(CURL *co)
 			  }
 			break;
 		  case 'V': /* -version */
-			//version(progname);
-			return 0;
+			  {
+				struct curl_slist *ssl_list=NULL, *head=NULL;
+				curl_version_info_data * curl_version = curl_version_info(CURLVERSION_NOW);
+
+				fprintf(cget_stderr,
+							"%s:\n"
+							"\t   cget version %s\n"
+							"\tlibcurl version %s\n"
+							"\t    ssl version %s\n"
+							"\t   libz version %s\n"
+							"\t   ares version %s\n"
+							"\t libidn version %s\n"
+							"\t libssh version %s\n"
+							"\nSupported protocols:\n",
+							progname,
+							VERSION,
+							curl_version->version,
+							curl_version->ssl_version,
+							curl_version->libz_version,
+							curl_version->ares,
+							curl_version->libidn,
+							curl_version->libssh_version);
+
+				// List all supported protocols
+				for(const char* const* protocol = curl_version->protocols; NULL != *protocol; ++protocol)
+				{
+					fprintf(cget_stderr, "\t%s\n", *protocol);
+				}
+
+				curl_easy_getinfo(co, CURLINFO_SSL_ENGINES, &ssl_list);
+				// Write out the supported SSL engines.
+				for(head=ssl_list; NULL!=head; head=head->next)
+				{
+					fprintf(cget_stderr, "\t%s\n", head->data);
+				}
+
+				curl_slist_free_all(ssl_list);				
+			} return false;
 		  case 'h': /* -help */
 			//help(progname);
 			return 0;		  
@@ -677,8 +722,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    global_progress = new Progress(hWnd);
    
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+   //ShowWindow(hWnd, nCmdShow);
+   //UpdateWindow(hWnd);
 
    return TRUE;
 }
